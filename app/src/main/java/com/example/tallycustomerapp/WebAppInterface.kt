@@ -51,6 +51,7 @@ class WebAppInterface(
     private var pagesVisited = 0
     private var pagesSaved = 0
     private var maxPages = 2000
+    private var interactiveSweepActive = false
 
     init {
         activeCompanyName = mirrorPrefs.getString("active_company_name", "").orEmpty()
@@ -213,8 +214,19 @@ class WebAppInterface(
     }
 
     @JavascriptInterface
+    fun setInteractiveSweepActive(active: Boolean) {
+        synchronized(queueLock) {
+            interactiveSweepActive = active
+            if (active) navigating = false
+        }
+    }
+
+    @JavascriptInterface
     fun requestNextMirrorPage() {
         mainHandler.post {
+            synchronized(queueLock) {
+                if (interactiveSweepActive) return@post
+            }
             navigateNextIfIdle()
         }
     }
@@ -376,10 +388,13 @@ class WebAppInterface(
 
     private fun completePageAndNavigate(url: String) {
         mainHandler.postDelayed({
-            synchronized(queueLock) {
+            val shouldNavigate = synchronized(queueLock) {
                 navigating = false
+                !interactiveSweepActive
             }
-            navigateNextIfIdle()
+            if (shouldNavigate) {
+                navigateNextIfIdle()
+            }
         }, 450L)
     }
 
