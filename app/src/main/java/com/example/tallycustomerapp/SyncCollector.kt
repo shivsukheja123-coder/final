@@ -396,6 +396,11 @@ object SyncCollector {
                 const hubUrl = normalizeUrl(location.href);
                 const currentCompany = clean(ctx.companyName);
 
+                const b0 = bridge();
+                if (b0 && b0.setInteractiveSweepActive) {
+                    b0.setInteractiveSweepActive(true);
+                }
+
                 let state = readInteractiveState();
 
                 if (!state ||
@@ -428,9 +433,12 @@ object SyncCollector {
                 if (!state.labels || state.index >= state.labels.length) {
                     state.active = false;
                     writeInteractiveState(state);
-                    status('REPORT MENU SAVED • Opening queued pages…');
 
                     const b = bridge();
+                    if (b && b.setInteractiveSweepActive) {
+                        b.setInteractiveSweepActive(false);
+                    }
+                    status('REPORT MENU SAVED • Opening queued pages…');
                     if (b && b.requestNextMirrorPage) {
                         setTimeout(() => b.requestNextMirrorPage(), 700);
                     }
@@ -452,6 +460,9 @@ object SyncCollector {
                         currentState.active = false;
                         writeInteractiveState(currentState);
                         const b = bridge();
+                        if (b && b.setInteractiveSweepActive) {
+                            b.setInteractiveSweepActive(false);
+                        }
                         if (b && b.requestNextMirrorPage) {
                             b.requestNextMirrorPage();
                         }
@@ -472,6 +483,7 @@ object SyncCollector {
 
                     try {
                         sessionStorage.setItem(STATE_KEY + ':returnPending', '1');
+                        sessionStorage.removeItem(STATE_KEY + ':returningToHub');
                     } catch (_) {}
 
                     status('Opening report ' + currentState.index +
@@ -508,9 +520,18 @@ object SyncCollector {
                 if (!pending) return false;
                 if (looksLikeReportsIndex()) return false;
 
+                const state = readInteractiveState();
+                const hubUrl = state && normalizeUrl(state.hubUrl);
+                if (!hubUrl) return false;
+
+                try {
+                    sessionStorage.setItem(STATE_KEY + ':returningToHub', '1');
+                    sessionStorage.removeItem(STATE_KEY + ':returnPending');
+                } catch (_) {}
+
                 setTimeout(() => {
                     try {
-                        history.back();
+                        location.href = hubUrl;
                     } catch (_) {}
                 }, RETURN_DELAY);
 
